@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Virtual Joystick with Firebase</title>
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background: #f0f0f0;
+      margin: 0;
+    }
+
+    .joystick-area {
+      width: 200px;
+      height: 200px;
+      background: #ddd;
+      border-radius: 50%;
+      position: relative;
+      touch-action: none;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    }
+
+    .stick {
+      width: 60px;
+      height: 60px;
+      background: #333;
+      border-radius: 50%;
+      position: absolute;
+      top: 70px;
+      left: 70px;
+      transition: 0.05s;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body>
+
+<div class="joystick-area" id="joystick">
+  <div class="stick" id="stick"></div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+  // Import Firebase SDK
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+  import { getDatabase, ref, set } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
+
+  // Firebase config (ใช้ของคุณเอง)
+  const firebaseConfig = {
+    databaseURL: "https://iot-001-86470-default-rtdb.asia-southeast1.firebasedatabase.app/"
+  };
+
+  // Init Firebase
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  const area = document.getElementById('joystick');
+  const stick = document.getElementById('stick');
+
+  let dragging = false;
+
+  area.addEventListener('pointerdown', () => {
+    dragging = true;
+  });
+
+  area.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+
+    const rect = area.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+
+    const dx = e.clientX - centerX;
+    const dy = e.clientY - centerY;
+
+    const maxRadius = 70;
+    const distance = Math.min(Math.sqrt(dx * dx + dy * dy), maxRadius);
+    const angle = Math.atan2(dy, dx);
+
+    const x = Math.cos(angle) * distance;
+    const y = Math.sin(angle) * distance;
+
+    stick.style.left = `${100 + x - 30}px`;
+    stick.style.top = `${100 + y - 30}px`;
+
+    const xNorm = parseFloat((x / maxRadius).toFixed(2));
+    const yNorm = parseFloat((y / maxRadius).toFixed(2));
+
+    // เขียนไปยัง Firebase RTDB
+    set(ref(db, 'joystick'), {
+      x: xNorm,
+      y: yNorm
+    });
+  });
+
+  area.addEventListener('pointerup', () => {
+    dragging = false;
+    stick.style.left = '70px';
+    stick.style.top = '70px';
+
+    // รีเซ็ตค่าใน Firebase
+    set(ref(db, 'joystick'), {
+      x: 0,
+      y: 0
+    });
+  });
+
+  area.addEventListener('pointerleave', () => {
+    dragging = false;
+    stick.style.left = '70px';
+    stick.style.top = '70px';
+
+    // รีเซ็ตค่าใน Firebase
+    set(ref(db, 'joystick'), {
+      x: 0,
+      y: 0
+    });
+  });
+</script>
+
+</body>
+</html>
